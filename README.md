@@ -111,6 +111,8 @@ Documents\Rainmeter\Skins\LyricsGlass\LyricsGlass.ini
 
 **EN:** When a fullscreen application is open (game, fullscreen video, fullscreen browser), the bridge stops rendering and writing frames — the widget doesn't consume FPS. As soon as you minimize the game, text highlight resumes.
 
+Виджет ставится по центру по горизонтали, в нижней части экрана с отступом 60 px от панели задач.
+
 ---
 
 ## 🎯 Режимы работы / Modes
