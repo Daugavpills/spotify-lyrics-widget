@@ -46,7 +46,7 @@ except Exception:
 
 SCALE = 1                                  # 1 = без суперсэмпла (60 фпс), 2 = retina
 K = 2.25                                   # общий масштаб виджета (390 → 877)
-WIDGET_W = int(CONFIG.get("widget_width", int(390 * K)))
+WIDGET_W = int(CONFIG.get("widget_width", int(390 * K * 0.85)))
 WIDGET_PAD = int(18 * K)
 # сдвиг подсветки относительно звука (мс): положительное = текст показывается
 # раньше звука (опережение), отрицательное = позже (отставание)
@@ -968,6 +968,50 @@ def _should_reposition():
         return True
 
 
+def _is_fullscreen_app():
+    """True, если есть пользовательское окно на весь экран (игра, видео, браузер на весь экран).
+    В это время не рисуем и не пишем кадры, чтобы не жрать FPS.
+    Исключаем рабочий стол, панели задач и оверлеи (NVIDIA и т.п.)."""
+    try:
+        import ctypes
+        from ctypes import wintypes
+        user32 = ctypes.windll.user32
+        # виртуальный экран — все мониторы вместе
+        sw = user32.GetSystemMetrics(78)   # SM_CXVIRTUALSCREEN
+        sh = user32.GetSystemMetrics(79)   # SM_CYVIRTUALSCREEN
+        found = False
+
+        def cb(hwnd, _):
+            nonlocal found
+            if found:
+                return True
+            if not user32.IsWindowVisible(hwnd):
+                return True
+            cls = ctypes.create_unicode_buffer(64)
+            user32.GetClassNameW(hwnd, cls, 64)
+            # пропускаем рабочий стол, панели и оверлеи (не являются полноэкранными приложениями)
+            if cls.value in ("Progman", "WorkerW", "Shell_TrayWnd", "CEF-OSC-WIDGET"):
+                return True
+            title = ctypes.create_unicode_buffer(512)
+            user32.GetWindowTextW(hwnd, title, 512)
+            if title.value.endswith("LyricsGlass\\LyricsGlass.ini"):
+                return True
+            r = wintypes.RECT()
+            if user32.GetWindowRect(hwnd, ctypes.byref(r)):
+                w = r.right - r.left
+                h = r.bottom - r.top
+                # окно почти на весь виртуальный экран — считаем полноэкранным приложением
+                if w >= sw - 10 and h >= sh - 10 and w > 0 and h > 0:
+                    found = True
+            return True
+
+        EnumProc = ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)
+        user32.EnumWindows(EnumProc(cb), 0)
+        return found
+    except Exception:
+        return False
+
+
 def ensure_widget_window():
     """Окно виджета — на рабочем столе: выше обоев, ниже обычных окон."""
     try:
@@ -998,12 +1042,21 @@ def ensure_widget_window():
             return
 
         if me != _WSTATE["hwnd"]:
-            # новое окно (старт/refresh) — ставим по координате из конфига,
+            # новое окно (старт/refresh) — ставим по центру по горизонтали
+            # и на 4/7 высоты по вертикали (4 сверху, 3 снизу),
             # если пользователь сам не перетаскивал
             _WSTATE["hwnd"] = me
             if _should_reposition():
+                sw = user32.GetSystemMetrics(0)      # ширина экрана
+                sh = user32.GetSystemMetrics(1)      # высота экрана
+                r = wintypes.RECT()
+                user32.GetWindowRect(me, ctypes.byref(r))
+                w = r.right - r.left
+                h = r.bottom - r.top
+                x = (sw - w) // 2                    # центр по горизонтали
+                y = sh - h - 150                      # 150 px отступа снизу от панели задач — не перекрывает её
                 # SWP_NOSIZE | SWP_NOACTIVATE — только переместить
-                user32.SetWindowPos(me, 0, 16, 16, 0, 0, 0x0001 | 0x0010)
+                user32.SetWindowPos(me, 0, x, y, 0, 0, 0x0001 | 0x0010)
 
         # z-order только при реальном нарушении: безусловный SetWindowPos
         # каждую секунду вызывает перерисовку и видимое мерцание
@@ -1034,6 +1087,11 @@ def widget_loop():
                         and bool(LYRICS["lines"]))
             if sig != last or anim:
                 last = sig
+                # не рисуем и не пишем кадры во время полноэкранной игры —
+                # экономим FPS
+                if _is_fullscreen_app():
+                    time.sleep(0.2)
+                    continue
                 img = build_widget_image()
                 if img is not None:
                     save_widget(img)
