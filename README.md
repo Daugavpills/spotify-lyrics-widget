@@ -125,9 +125,9 @@ Two frame files (`lyrics_a.png` / `lyrics_b.png`) are written in turn. The bridg
 
 ## 📄 Атрибуция / Attribution
 
-**RU:** Spicy Lyrics по условиям использования требует указывать источник текста. Строка атрибуции в виджете отключена по запросу пользователя. Если провайдер потребует её вернуть — это один блок в `build_widget_image` (`_credit_text`).
+**RU:** источник текста скрыт, если вы захотите её вернуть — это один блок в `build_widget_image` (`_credit_text`).
 
-**EN:** Spicy Lyrics terms of use require attributing the text source. The attribution line in the widget is disabled at user request. If the provider requires it back — it's one block in `build_widget_image` (`_credit_text`).
+**EN:** text source hidden, if you want it back — it's one block in `build_widget_image` (`_credit_text`).
 
 ---
 
