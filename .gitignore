@@ -1,0 +1,33 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyc
+*.pyd
+*.so
+*.egg-info/
+.env
+
+# Spotify bridge config (contains your Spicy API key — do not commit)
+config.json
+
+# Rendered widget frames (built at runtime by bridge.py)
+lyrics.png
+lyrics.tmp.png
+lyrics_a.png
+lyrics_b.png
+frame.txt
+ack.txt
+
+# Lyrics cache
+cache/
+
+# Temp / perf
+*.log
+Rainmeter.log
+perf*.png
+s*.png
+final_check.png
+
+# OS
+Thumbs.db
+.DS_Store

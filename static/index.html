@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Текст песни</title>
+<style>
+  :root {
+    --accent: #7ce7ff;
+    --fg: #e9eef5;
+    --dim: rgba(233,238,245,.34);
+    --panel: rgba(16,18,24,.72);
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html, body { height:100%; overflow:hidden; }
+  body {
+    font-family:"Segoe UI Variable Text","Segoe UI",system-ui,sans-serif;
+    background:var(--panel);
+    backdrop-filter:blur(28px) saturate(140%);
+    -webkit-backdrop-filter:blur(28px) saturate(140%);
+    color:var(--fg);
+    display:flex; flex-direction:column;
+    -webkit-user-select:none; user-select:none;
+  }
+  header {
+    padding:16px 20px 10px;
+    text-align:center;
+    border-bottom:1px solid rgba(255,255,255,.07);
+    flex:0 0 auto;
+  }
+  #title { font-size:14px; font-weight:600; letter-spacing:.2px;
+           white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  #artist { font-size:11.5px; color:var(--dim); margin-top:2px;
+            white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  #badge { display:inline-block; margin-top:7px; font-size:9.5px;
+           letter-spacing:.6px; text-transform:uppercase;
+           color:var(--dim); border:1px solid rgba(255,255,255,.14);
+           border-radius:99px; padding:2px 9px; }
+  main { flex:1 1 auto; position:relative; overflow:hidden;
+         -webkit-mask-image:linear-gradient(transparent,#000 14%,#000 86%,transparent);
+         mask-image:linear-gradient(transparent,#000 14%,#000 86%,transparent); }
+  #scroller {
+    position:absolute; left:0; right:0; top:0;
+    padding:0 24px;
+    transition:transform .55s cubic-bezier(.22,.8,.3,1);
+    will-change:transform;
+  }
+  .line {
+    text-align:center; padding:11px 0; font-size:17px; line-height:1.45;
+    color:var(--dim); transition:color .3s, font-size .3s, opacity .4s;
+    opacity:.55; word-wrap:break-word;
+  }
+  .line.active {
+    font-size:24px; font-weight:650; color:var(--fg);
+    opacity:1; letter-spacing:.15px;
+  }
+  .line .w { transition:color .12s; color:inherit; }
+  .line.active .w { color:rgba(233,238,245,.38); }
+  .line.active .w.done { color:var(--fg); }
+  .line.active .w.on { color:var(--accent); text-shadow:0 0 14px rgba(124,231,255,.45); }
+  #msg {
+    position:absolute; inset:0; display:flex; align-items:center;
+    justify-content:center; text-align:center; padding:0 30px;
+    font-size:14px; color:var(--dim); line-height:1.6;
+  }
+  footer {
+    flex:0 0 auto; padding:9px 16px 12px; text-align:center;
+    font-size:10px; color:rgba(233,238,245,.30); line-height:1.5;
+    border-top:1px solid rgba(255,255,255,.07);
+    min-height:34px;
+  }
+  footer a { color:rgba(124,231,255,.55); text-decoration:none; }
+  footer a:hover { text-decoration:underline; }
+  #bar { position:absolute; left:0; bottom:0; height:2px;
+         background:linear-gradient(90deg,rgba(124,231,255,.75),rgba(124,231,255,.25));
+         width:0; transition:width .3s linear; }
+</style>
+</head>
+<body>
+  <header>
+    <div id="title">—</div>
+    <div id="artist"></div>
+    <div id="badge">подключение…</div>
+  </header>
+  <main>
+    <div id="scroller"></div>
+    <div id="msg">Ожидание Spotify…</div>
+    <div id="bar"></div>
+  </main>
+  <footer id="credit"></footer>
+
+<script>
+let lyricsId = null;
+let lines = [];
+let wordSync = "none";
+let lyrReady = false;
+let lastLine = -1, lastWord = -2;
+const $ = id => document.getElementById(id);
+
+function esc(s){
+  return s.replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+}
+
+function renderLines(){
+  const sc = $("scroller");
+  sc.innerHTML = lines.map((ln, i) => {
+    let inner;
+    if (ln.words && ln.words.length) {
+      inner = ln.words.map((w,j) =>
+        `<span class="w" data-j="${j}">${esc(w.text)}</span>`).join(" ");
+    } else {
+      inner = esc(ln.text);
+    }
+    return `<div class="line" data-i="${i}">${inner}</div>`;
+  }).join("");
+  lastLine = -1; lastWord = -2;
+  $("msg").style.display = lines.length ? "none" : "flex";
+}
+
+function renderCredit(c, source){
+  if (!c){ $("credit").innerHTML = source ? esc(source) : ""; return; }
+  let html = "Текст: " + esc(c.provider || source || "");
+  const link = p => p && p.url ? `<a href="${esc(p.url)}" target="_blank" rel="noopener">${esc(p.username||"")}</a>` : "";
+  if (c.uploader){
+    html += " · загрузил " + link(c.uploader);
+    if (c.maker) html += ", собрал " + link(c.maker);
+  }
+  $("credit").innerHTML = html;
+}
+
+function updateActive(li, wi, scroll){
+  const sc = $("scroller");
+  const els = sc.querySelectorAll(".line");
+  if (li !== lastLine){
+    els.forEach(e => e.classList.remove("active"));
+    if (li >= 0 && els[li]){
+      els[li].classList.add("active");
+      if (scroll){
+        const el = els[li];
+        const target = el.offsetTop + el.offsetHeight/2 - sc.parentElement.clientHeight/2;
+        sc.style.transform = `translateY(${-Math.max(0, target)}px)`;
+      }
+    }
+    lastLine = li;
+    lastWord = -2;
+  }
+  if (li >= 0 && els[li]){
+    const ws = els[li].querySelectorAll(".w");
+    if (ws.length && wi !== lastWord){
+      ws.forEach((w,j) => {
+        w.classList.toggle("on", j === wi);
+        w.classList.toggle("done", wi >= 0 && j < wi);
+      });
+      lastWord = wi;
+    }
+  }
+}
+
+async function poll(){
+  let st, lyr;
+  try {
+    st = await (await fetch("/state")).json();
+    if (st.lyrics_id !== lyricsId){
+      lyricsId = st.lyrics_id;
+      lyr = await (await fetch("/lyrics")).json();
+      lines = (lyr && lyr.id === st.lyrics_id) ? (lyr.lines || []) : [];
+      wordSync = (lyr && lyr.word_sync) || "none";
+      lyrReady = !!(lyr && lyr.id === st.lyrics_id && lines.length);
+      renderLines();
+      renderCredit(lyr && lyr.credit, lyr && lyr.source);
+    }
+  } catch(e){
+    $("msg").style.display = "flex";
+    $("msg").textContent = "Мост не запущен — запусти bridge.py";
+    setTimeout(poll, 1500);
+    return;
+  }
+
+  $("title").textContent = st.title || "—";
+  $("artist").textContent = st.artist || "";
+  const badge = $("badge");
+  if (!st.connected){
+    $("msg").style.display = "flex";
+    $("msg").textContent = "Открой Spotify и включи песню";
+    badge.textContent = "";
+  } else if (st.lyrics_status === "loading" && !lines.length){
+    $("msg").style.display = "flex";
+    $("msg").textContent = "Ищу текст…";
+    badge.textContent = "загрузка…";
+  } else if (st.lyrics_status === "none" || !lines.length){
+    $("msg").style.display = "flex";
+    $("msg").textContent = "Текст для этого трека не найден";
+    badge.textContent = "";
+  } else {
+    $("msg").style.display = "none";
+    if (wordSync === "exact") badge.textContent = "пословно";
+    else if (wordSync === "estimated") badge.textContent = "построчно";
+    else badge.textContent = "без синхронизации";
+  }
+
+  if (lines.length){
+    updateActive(st.line_index, st.word_index, true);
+    if (st.duration_ms){
+      const p = Math.min(100, st.position_ms / st.duration_ms * 100);
+      $("bar").style.width = p + "%";
+    }
+  }
+  setTimeout(poll, 120);
+}
+poll();
+</script>
+</body>
+</html>
