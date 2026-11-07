@@ -68,7 +68,7 @@ pythonw bridge.py
 | Файл / File | Что делает / What it does |
 |---|---|
 | `bridge.py` | Мост: SMTC (позиция Spotify) → API текста → рисует PNG ~33 кадра/с / Bridge: SMTC (Spotify position) → lyrics API → draws PNG ~33 fps |
-| `config.json` | Конфиг (твой `spicy_key` — **не публикуй в открытом репозитории**) / Config (your `spicy_key` — **do not publish in a public repo**) |
+| `config.json` | Конфиг (твой `spicy_key`) / Config (your `spicy_key` — **do not publish in a public repo**) |
 | `config.example.json` | Шаблон конфига с placeholder-ключом / Config template with placeholder key |
 | `run.bat` | Лаунчер моста (`pythonw bridge.py`) / Bridge launcher (`pythonw bridge.py`) |
 | `.gitignore` | Исключает кэш, логи, отрисованные кадры / Excludes cache, logs, rendered frames |
