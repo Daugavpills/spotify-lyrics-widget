@@ -7,8 +7,7 @@ __pycache__/
 *.egg-info/
 .env
 
-# Spotify bridge config (contains your Spicy API key — do not commit)
-config.json
+# Spotify bridge config (commit only with placeholder key — never your real key)
 
 # Rendered widget frames (built at runtime by bridge.py)
 lyrics.png
