@@ -105,6 +105,14 @@ Documents\Rainmeter\Skins\LyricsGlass\LyricsGlass.ini
 
 ---
 
+## 🎮 Игры и полноэкранные приложения / Games and fullscreen apps
+
+**RU:** Если открыто полноэкранное приложение (игра, видео на весь экран, браузер на весь экран), мост перестаёт рисовать и записывать кадры — виджет не жрёт FPS. Как только вы свернёте игру, подсветка текста возобновится.
+
+**EN:** When a fullscreen application is open (game, fullscreen video, fullscreen browser), the bridge stops rendering and writing frames — the widget doesn't consume FPS. As soon as you minimize the game, text highlight resumes.
+
+---
+
 ## 🎯 Режимы работы / Modes
 
 ```
