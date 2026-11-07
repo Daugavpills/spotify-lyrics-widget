@@ -969,7 +969,7 @@ def _should_reposition():
 
 
 def _is_fullscreen_app():
-    """True, если есть пользовательское окно на весь экран (игра, видео, браузер на весь экран).
+    """True, если есть активное пользовательское окно на весь экран (игра, видео, браузер на весь экран).
     В это время не рисуем и не пишем кадры, чтобы не жрать FPS.
     Исключаем рабочий стол, панели задач и оверлеи (NVIDIA и т.п.)."""
     try:
@@ -996,11 +996,14 @@ def _is_fullscreen_app():
             user32.GetWindowTextW(hwnd, title, 512)
             if title.value.endswith("LyricsGlass\\LyricsGlass.ini"):
                 return True
+            # окно должно быть активным (передового плана), иначе не считаем его игрой
+            if user32.GetForegroundWindow() != hwnd:
+                return True
             r = wintypes.RECT()
             if user32.GetWindowRect(hwnd, ctypes.byref(r)):
                 w = r.right - r.left
                 h = r.bottom - r.top
-                # окно почти на весь виртуальный экран — считаем полноэкранным приложением
+                # активное окно почти на весь виртуальный экран — считаем полноэкранным приложением
                 if w >= sw - 10 and h >= sh - 10 and w > 0 and h > 0:
                     found = True
             return True
