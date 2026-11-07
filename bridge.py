@@ -969,48 +969,62 @@ def _should_reposition():
 
 
 def _is_fullscreen_app():
-    """True, если есть активное пользовательское окно на весь экран (игра, видео, браузер на весь экран).
-    В это время не рисуем и не пишем кадры, чтобы не жрать FPS.
+    """True, если активно пользовательское окно на весь экран (игра, видео, браузер на весь экран)
+    на ЛЮБОМ из мониторов. В это время не рисуем и не пишем кадры, чтобы не жрать FPS.
     Исключаем рабочий стол, панели задач и оверлеи (NVIDIA и т.п.)."""
     try:
         import ctypes
         from ctypes import wintypes
         user32 = ctypes.windll.user32
-        # виртуальный экран — все мониторы вместе
-        sw = user32.GetSystemMetrics(78)   # SM_CXVIRTUALSCREEN
-        sh = user32.GetSystemMetrics(79)   # SM_CYVIRTUALSCREEN
-        found = False
 
-        def cb(hwnd, _):
-            nonlocal found
-            if found:
-                return True
-            if not user32.IsWindowVisible(hwnd):
-                return True
-            cls = ctypes.create_unicode_buffer(64)
-            user32.GetClassNameW(hwnd, cls, 64)
-            # пропускаем рабочий стол, панели и оверлеи (не являются полноэкранными приложениями)
-            if cls.value in ("Progman", "WorkerW", "Shell_TrayWnd", "CEF-OSC-WIDGET"):
-                return True
-            title = ctypes.create_unicode_buffer(512)
-            user32.GetWindowTextW(hwnd, title, 512)
-            if title.value.endswith("LyricsGlass\\LyricsGlass.ini"):
-                return True
-            # окно должно быть активным (передового плана), иначе не считаем его игрой
-            if user32.GetForegroundWindow() != hwnd:
-                return True
-            r = wintypes.RECT()
-            if user32.GetWindowRect(hwnd, ctypes.byref(r)):
-                w = r.right - r.left
-                h = r.bottom - r.top
-                # активное окно почти на весь виртуальный экран — считаем полноэкранным приложением
-                if w >= sw - 10 and h >= sh - 10 and w > 0 and h > 0:
-                    found = True
+        # Активное окно (передового плана) — только оно может быть игрой на переднем плане
+        fg = user32.GetForegroundWindow()
+        if not fg:
+            return False
+
+        title = ctypes.create_unicode_buffer(512)
+        user32.GetWindowTextW(fg, title, 512)
+        if title.value.endswith("LyricsGlass\\LyricsGlass.ini"):
+            return False
+
+        cls = ctypes.create_unicode_buffer(64)
+        user32.GetClassNameW(fg, cls, 64)
+        # пропускаем рабочий стол, панели и оверлеи (не являются полноэкранными приложениями)
+        if cls.value in ("Progman", "WorkerW", "Shell_TrayWnd", "CEF-OSC-WIDGET"):
+            return False
+
+        # Монитор, на котором находится активное окно (работает с 2+ мониторами)
+        MONITOR_DEFAULTTONULL = 0
+        hmon = user32.MonitorFromWindow(fg, MONITOR_DEFAULTTONULL)
+        if not hmon:
+            return False
+
+        class MONITORINFO(ctypes.Structure):
+            _fields_ = [
+                ("cbSize", wintypes.DWORD),
+                ("rcMonitor", wintypes.RECT),
+                ("rcWork", wintypes.RECT),
+                ("dwFlags", wintypes.DWORD),
+            ]
+
+        mi = MONITORINFO()
+        mi.cbSize = ctypes.sizeof(MONITORINFO)
+        if not user32.GetMonitorInfoW(hmon, ctypes.byref(mi)):
+            return False
+
+        mon_w = mi.rcMonitor.right - mi.rcMonitor.left
+        mon_h = mi.rcMonitor.bottom - mi.rcMonitor.top
+
+        r = wintypes.RECT()
+        if not user32.GetWindowRect(fg, ctypes.byref(r)):
+            return False
+        w = r.right - r.left
+        h = r.bottom - r.top
+
+        # Активное окно почти на весь СВОЙ монитор — считаем полноэкранным приложением
+        if w >= mon_w - 10 and h >= mon_h - 10 and w > 0 and h > 0:
             return True
-
-        EnumProc = ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)
-        user32.EnumWindows(EnumProc(cb), 0)
-        return found
+        return False
     except Exception:
         return False
 
