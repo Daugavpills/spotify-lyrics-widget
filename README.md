@@ -31,7 +31,7 @@ copy config.example.json config.json
 {
   "spicy_key": "sl_sk_твой_ключ_здесь",
   "port": 8765,
-  "widget_width": 390,
+  "widget_width": 332,
   "lag_offset_ms": 0
 }
 ```
