@@ -105,22 +105,54 @@ def ts_ms(v):
     return None
 
 
+PREFERRED_SOURCES = ("spotify", "soundcloud")
+
+
+def _session_aumid(s):
+    try:
+        return (s.source_app_user_model_id or "").lower()
+    except Exception:
+        return ""
+
+
+def _session_playing(s):
+    try:
+        from winsdk.windows.media.control import (
+            GlobalSystemMediaTransportControlsSessionPlaybackStatus as St,
+        )
+        return s.get_playback_info().playback_status == St.PLAYING
+    except Exception:
+        return False
+
+
 def pick_session(mgr):
+    """Выбираем сессию воспроизведения: Spotify / SoundCloud (приложение или
+    браузер) / любой другой источник, который сейчас реально играет."""
     try:
         sessions = list(mgr.get_sessions())
     except Exception:
         sessions = []
-    spotify = None
-    for s in sessions:
+    if not sessions:
         try:
-            aumid = (s.source_app_user_model_id or "").lower()
+            return mgr.get_current_session()
         except Exception:
-            aumid = ""
-        if "spotify" in aumid:
-            spotify = s
-            break
-    if spotify:
-        return spotify
+            return None
+
+    # 1. играющий Spotify/SoundCloud (приоритет)
+    for pref in PREFERRED_SOURCES:
+        for s in sessions:
+            if pref in _session_aumid(s) and _session_playing(s):
+                return s
+    # 2. любой играющий источник (SoundCloud в браузере и т.п.)
+    for s in sessions:
+        if _session_playing(s):
+            return s
+    # 3. паузнутый Spotify/SoundCloud — чтобы виджет не прыгал на видео
+    for pref in PREFERRED_SOURCES:
+        for s in sessions:
+            if pref in _session_aumid(s):
+                return s
+    # 4. последняя активная сессия
     try:
         return mgr.get_current_session()
     except Exception:
@@ -240,6 +272,27 @@ def compute_indices(pos):
     STATE["word_index"] = widx
 
 
+# Браузеры и плееры добавляют суффиксы к названию: "Track | YouTube",
+# "Track - SoundCloud" и т.п. Для поиска текста чистим, для отображения — нет.
+_SOURCE_SUFFIX_RE = re.compile(
+    r"\s*[|\-–—]\s*(YouTube|SoundCloud|Spotify|Yandex Music|Apple Music"
+    r"|VK Music|Deezer)\s*$",
+    re.I,
+)
+
+
+def clean_meta(title, artist):
+    """Чистит title/artist от суффиксов источника для поиска текста."""
+    t = _SOURCE_SUFFIX_RE.sub("", (title or "").strip()).strip(" -–—|\t")
+    a = _SOURCE_SUFFIX_RE.sub("", (artist or "").strip()).strip(" -–—|\t")
+    # SoundCloud/браузер: artist пустой, всё в title как "Artist - Track"
+    if t and not a:
+        parts = re.split(r"\s+[-–—]\s+", t, maxsplit=1)
+        if len(parts) == 2 and all(parts):
+            t, a = parts[1], parts[0]
+    return t, a
+
+
 def start_lyrics_job(key, title, artist, duration):
     if not title:
         return
@@ -300,16 +353,17 @@ def fetch_lyrics_job(key, title, artist, duration):
     try:
         spicy_checked = False
         spicy_res = None
+        q_title, q_artist = clean_meta(title, artist)
         if SPICY_KEY:
             spicy_checked = True
-            spicy_res = fetch_spicy(title, artist, duration)
+            spicy_res = fetch_spicy(q_title, q_artist, duration)
 
         # приоритет: синхронизированный текст > статичный
         pick = None
         if spicy_res and spicy_res[1] != "none":
             pick = ("Spicy Lyrics", spicy_res)
         else:
-            lr_res = fetch_lrclib(title, artist, duration)
+            lr_res = fetch_lrclib(q_title, q_artist, duration)
             if lr_res and lr_res[1] != "none":
                 pick = ("LRCLIB", lr_res)
             elif spicy_res:
@@ -685,7 +739,7 @@ def build_widget_image():
 
     msg = None
     if not connected:
-        msg = "Открой Spotify и включи песню"
+        msg = "Включи Spotify / SoundCloud"
     elif not lyr:
         msg = ("Ищу текст…" if lstatus == "loading"
                else "Текст для этого трека не найден")
