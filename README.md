@@ -4,10 +4,6 @@
 
 **EN:** Local bridge: **Spotify → synced lyrics (Spicy Lyrics / LRCLIB) → PNG with word highlight → Rainmeter LyricsGlass widget.** Widget runs on the desktop below open windows, updates ~33 fps, highlight flows word-by-word in sync with audio.
 
-**RU:** Источники: **Spotify** (приложение) и **SoundCloud** (приложение или браузер), а также любой другой плеер с SMTC, который сейчас играет. Мост сам выбирает играющий трек.
-
-**EN:** Sources: **Spotify** (app) and **SoundCloud** (app or browser), plus any other SMTC player that is currently playing. The bridge auto-picks the playing track.
-
 ---
 
 ## 🚀 Быстрый старт / Quick start
